@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>MMDb Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0f0d;
+      --bg-card:   #181714;
+      --bg-lift:   #1f1c18;
+      --amber:     #d4921a;
+      --amber-dim: #a0700f;
+      --amber-glow:rgba(212,146,26,.15);
+      --text:      #f0ebe1;
+      --muted:     #8a8070;
+      --border:    #2a2520;
+      --green:     #4caf72;
+      --red:       #d45a4a;
+      --teal:      #4ab3b3;
+      --yellow:    #d4c44a;
+      --radius:    6px;
+      --transition: 180ms ease;
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Lato', sans-serif;
+      font-weight: 400;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,15,13,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .app-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--amber);
+    }
+
+    .app-header .tagline {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
+
+    .logout-btn {
+      font-family: 'Lato', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      cursor: pointer;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      transition: color var(--transition), border-color var(--transition);
+    }
+
+    .logout-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Form container ──────────────────────────────── */
+    .form-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ── Section ─────────────────────────────────────── */
+    .section { padding: 20px 0 14px; }
+    .section + .section { border-top: 1px solid var(--border); }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .section-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--amber);
+      letter-spacing: .1em;
+      opacity: .7;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: .01em;
+    }
+
+    /* ── Field group ─────────────────────────────────── */
+    .field { margin-bottom: 16px; }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* ── Inputs ──────────────────────────────────────── */
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Lato', sans-serif;
+      font-size: 16px;
+      padding: 10px 0;
+      outline: none;
+      transition: border-color var(--transition);
+      -webkit-appearance: none;
+      border-radius: 0;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus { border-bottom-color: var(--amber); }
+
+    input::placeholder,
+    textarea::placeholder { color: var(--muted); }
+
+    .input-hero {
+      font-size: 24px;
+      font-weight: 300;
+      padding-bottom: 12px;
+    }
+
+    .input-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--amber);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      line-height: 1.7;
+    }
+
+    /* ── Slug hint ───────────────────────────────────── */
+    .slug-hint {
+      margin-top: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .04em;
+      min-height: 16px;
+    }
+
+    .slug-hint span { color: var(--amber-dim); }
+
+    /* ── Other input (pills) ─────────────────────────── */
+    .other-input-wrap {
+      margin-top: 12px;
+      display: none;
+    }
+
+    .other-input-wrap.visible { display: block; }
+
+    .other-input-wrap input[type="text"] {
+      font-size: 14px;
+    }
+
+    /* ── Pill buttons ────────────────────────────────── */
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      font-family: 'Lato', sans-serif;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+      transition: all var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .pill:hover { border-color: var(--amber); color: var(--amber); }
+
+    .pill.selected {
+      background: var(--amber);
+      border-color: var(--amber);
+      color: #0f0f0d;
+      font-weight: 700;
+    }
+
+    .pill[data-other].selected {
+      background: var(--bg-lift);
+      border-color: var(--amber);
+      color: var(--amber);
+      font-weight: 400;
+    }
+
+    /* Diet pill colours */
+    .pill[data-diet="Veg"].selected    { background: var(--green);  border-color: var(--green);  color: #0f0f0d; }
+    .pill[data-diet="Non-Veg"].selected{ background: var(--red);    border-color: var(--red);    color: #fff; }
+    .pill[data-diet="Vegan"].selected  { background: var(--teal);   border-color: var(--teal);   color: #0f0f0d; }
+    .pill[data-diet="Egg"].selected    { background: var(--yellow);  border-color: var(--yellow); color: #0f0f0d; }
+
+    .pill[data-diet="Veg"]:not(.selected)    { border-color: var(--green);  color: var(--green); }
+    .pill[data-diet="Non-Veg"]:not(.selected){ border-color: var(--red);    color: var(--red); }
+    .pill[data-diet="Vegan"]:not(.selected)  { border-color: var(--teal);   color: var(--teal); }
+    .pill[data-diet="Egg"]:not(.selected)    { border-color: var(--yellow); color: var(--yellow); }
+
+    /* ── Toggle switch ───────────────────────────────── */
+    .toggle-wrap { display: flex; align-items: center; gap: 14px; }
+
+    .toggle { position: relative; width: 56px; height: 30px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-lift);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform var(--transition), background var(--transition);
+    }
+
+    .toggle input:checked + .toggle-track { background: var(--amber-glow); border-color: var(--amber); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(26px); background: var(--amber); }
+
+    .toggle-label { font-size: 15px; color: var(--text); }
+
+    /* ── Range slider ────────────────────────────────── */
+    .slider-wrap { display: flex; align-items: center; gap: 16px; }
+
+    .slider-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--amber);
+      min-width: 32px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+      background-image: linear-gradient(var(--amber), var(--amber));
+      background-size: 0% 100%;
+      background-repeat: no-repeat;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--amber);
+      border: 3px solid var(--bg);
+      box-shadow: 0 0 0 1px var(--amber);
+      cursor: pointer;
+      transition: transform var(--transition);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--amber);
+      border: 3px solid var(--bg);
+      box-shadow: 0 0 0 1px var(--amber);
+      cursor: pointer;
+    }
+
+    input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
+
+    /* ── Price tier cards ────────────────────────────── */
+    .price-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .price-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 56px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all var(--transition);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      padding: 8px 4px;
+    }
+
+    .price-card:hover { border-color: var(--amber); }
+    .price-card.selected { border-color: var(--amber); background: var(--amber-glow); }
+
+    .price-rupee {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      color: var(--amber);
+      margin-bottom: 4px;
+    }
+
+    .price-label {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .price-card.selected .price-label { color: var(--text); }
+
+    /* ── GPS ─────────────────────────────────────────── */
+    .gps-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg-lift);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .gps-strip.acquiring { border-color: var(--amber-dim); color: var(--amber); }
+    .gps-strip.success   { border-color: rgba(76,175,114,.4); color: var(--muted); }
+    .gps-strip.error     { border-color: rgba(212,90,74,.3); color: var(--red); }
+
+    .gps-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .gps-strip.acquiring .gps-dot { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+    .gps-strip.success .gps-dot   { background: var(--green); }
+    .gps-strip.error .gps-dot     { background: var(--red); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+    .gps-coords-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--amber);
+      flex: 1;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gps-maps-link {
+      font-size: 11px;
+      color: var(--amber-dim);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--amber-dim);
+      flex-shrink: 0;
+    }
+
+    .gps-maps-link:hover { color: var(--amber); }
+
+    .gps-update-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .gps-update-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Lato', sans-serif;
+      font-size: 11px;
+      letter-spacing: .06em;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .gps-update-btn:hover { color: var(--amber); }
+
+    .gps-update-panel {
+      display: none;
+      margin-top: 10px;
+      padding: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .gps-update-panel.visible { display: block; }
+
+    .gps-recapture-btn {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--amber-dim);
+      border-radius: var(--radius);
+      color: var(--amber);
+      font-family: 'Lato', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .gps-recapture-btn:hover { background: var(--amber-glow); border-color: var(--amber); }
+
+    .gps-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+
+    .gps-divider::before,
+    .gps-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .gps-manual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ── Item cards ──────────────────────────────────── */
+    .items-list { display: flex; flex-direction: column; gap: 16px; }
+
+    .item-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 14px;
+      position: relative;
+      animation: slideIn 200ms ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .item-remove {
+      position: absolute;
+      top: 14px; right: 14px;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      line-height: 1;
+    }
+
+    .item-remove:hover { border-color: var(--red); color: var(--red); }
+
+    .item-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--amber);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      opacity: .6;
+    }
+
+    .item-field { margin-bottom: 14px; }
+    .item-field:last-child { margin-bottom: 0; }
+
+    .add-item-btn {
+      width: 100%;
+      min-height: 44px;
+      background: transparent;
+      border: 1px dashed var(--amber-dim);
+      border-radius: var(--radius);
+      color: var(--amber);
+      font-family: 'Lato', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .add-item-btn:hover { background: var(--amber-glow); border-style: solid; }
+
+    /* ── Submit button ───────────────────────────────── */
+    .submit-btn {
+      width: 100%;
+      min-height: 58px;
+      background: var(--amber);
+      color: #0f0f0d;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 12px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .submit-btn:hover { opacity: .92; }
+    .submit-btn:active { transform: scale(.99); }
+    .submit-btn:disabled { opacity: .5; cursor: default; }
+
+    /* ── Banners ─────────────────────────────────────── */
+    .banner {
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 16px;
+      display: none;
+    }
+
+    .banner.visible { display: block; }
+
+    .banner-success {
+      background: rgba(76,175,114,.1);
+      border: 1px solid rgba(76,175,114,.3);
+      color: #9dddb8;
+    }
+
+    .banner-error {
+      background: rgba(212,90,74,.1);
+      border: 1px solid rgba(212,90,74,.3);
+      color: #f0a090;
+    }
+
+    .banner a { color: var(--amber); text-decoration: underline; }
+
+    /* ── Spinner ─────────────────────────────────────── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(15,15,13,.3);
+      border-top-color: #0f0f0d;
+      border-radius: 50%;
+      animation: spin 600ms linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div>
+      <h1>MMDb Admin</h1>
+      <div class="tagline">Submissions</div>
+    </div>
+    <a href="/logout"><button class="logout-btn">Sign out</button></a>
+  </header>
+
+  <!-- Form -->
+  <main class="form-wrap">
+    <form id="placeForm" novalidate>
+
+      <!-- ① Place ────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-num">01</span>
+          <h2 class="section-title">The Place</h2>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Name</label>
+          <input
+            type="text"
+            id="placeName"
+            class="input-hero"
+            placeholder="Where are you?"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            required
+          />
+          <div class="slug-hint" id="slugHint"></div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="placeArea">Area / Neighbourhood</label>
+          <input
+            type="text"
+            id="placeArea"
+            placeholder="Banjara Hills, Jubilee Hills..."
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Type</label>
+          <div class="pills" id="placeTypePills" data-mode="single">
+            <button type="button" class="pill" data-value="restaurant">Restaurant</button>
+            <button type="button" class="pill" data-value="eatery">Eatery</button>
+            <button type="button" class="pill" data-value="dhaba">Dhaba</button>
+            <button type="button" class="pill" data-value="cafe">Cafe</button>
+            <button type="button" class="pill" data-value="food court">Food Court</button>
+            <button type="button" class="pill" data-value="bakery">Bakery</button>
+            <button type="button" class="pill" data-value="street food">Street Food</button>
+            <button type="button" class="pill" data-value="_other" data-other="true">Other…</button>
+          </div>
+          <div class="other-input-wrap" id="typeOtherWrap">
+            <input type="text" id="typeOtherInput" placeholder="Enter type" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Cuisines</label>
+          <div class="pills" id="cuisinePills" data-mode="multi">
+            <button type="button" class="pill" data-value="Andhra">Andhra</button>
+            <button type="button" class="pill" data-value="Hyderabadi">Hyderabadi</button>
+            <button type="button" class="pill" data-value="North Indian">North Indian</button>
+            <button type="button" class="pill" data-value="Chinese">Chinese</button>
+            <button type="button" class="pill" data-value="South Indian">South Indian</button>
+            <button type="button" class="pill" data-value="Mughlai">Mughlai</button>
+            <button type="button" class="pill" data-value="Fast Food">Fast Food</button>
+            <button type="button" class="pill" data-value="Continental">Continental</button>
+            <button type="button" class="pill" data-value="Street Food">Street Food</button>
+            <button type="button" class="pill" data-value="_other" data-other="true">Other…</button>
+          </div>
+          <div class="other-input-wrap" id="cuisineOtherWrap">
+            <input type="text" id="cuisineOtherInput" placeholder="Enter cuisine" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Veg Friendly</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="vegFriendly" />
+              <span class="toggle-track"></span>
+            </label>
+            <span class="toggle-label" id="vegLabel">No</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② Location ──────────────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-num">02</span>
+          <h2 class="section-title">Location</h2>
+        </div>
+
+        <div class="field">
+          <!-- Status strip -->
+          <div class="gps-strip acquiring" id="gpsStrip">
+            <div class="gps-dot"></div>
+            <span id="gpsStatusText">Acquiring location…</span>
+            <span class="gps-coords-text" id="gpsCoordsText"></span>
+            <a class="gps-maps-link" id="gpsMapsLink" href="#" target="_blank" rel="noopener" style="display:none">Maps ↗</a>
+          </div>
+
+          <!-- Always-visible update link -->
+          <div class="gps-update-row">
+            <button type="button" class="gps-update-btn" onclick="toggleGpsUpdate()">↺ Update Location</button>
+          </div>
+
+          <!-- Expandable update panel -->
+          <div class="gps-update-panel" id="gpsUpdatePanel">
+            <button type="button" class="gps-recapture-btn" onclick="captureGPS(); closeGpsUpdate()">📍 Recapture GPS</button>
+            <div class="gps-divider">or enter manually</div>
+            <div class="gps-manual-grid">
+              <div>
+                <label class="field-label">Latitude</label>
+                <input type="number" id="latManual" class="input-mono" placeholder="17.4239" step="any" oninput="applyManual()" />
+              </div>
+              <div>
+                <label class="field-label">Longitude</label>
+                <input type="number" id="lngManual" class="input-mono" placeholder="78.4738" step="any" oninput="applyManual()" />
+              </div>
+            </div>
+          </div>
+
+          <input type="hidden" id="latInput" />
+          <input type="hidden" id="lngInput" />
+        </div>
+
+        <div class="field">
+          <label class="field-label">Price Tier</label>
+          <div class="price-cards" id="pricePills">
+            <div class="price-card" data-value="1" onclick="selectPrice(this)">
+              <div class="price-rupee">₹</div>
+              <div class="price-label">Budget</div>
+            </div>
+            <div class="price-card" data-value="2" onclick="selectPrice(this)">
+              <div class="price-rupee">₹₹</div>
+              <div class="price-label">Moderate</div>
+            </div>
+            <div class="price-card" data-value="3" onclick="selectPrice(this)">
+              <div class="price-rupee">₹₹₹</div>
+              <div class="price-label">Pricey</div>
+            </div>
+            <div class="price-card" data-value="4" onclick="selectPrice(this)">
+              <div class="price-rupee">₹₹₹₹</div>
+              <div class="price-label">Premium</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ About ──────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-num">03</span>
+          <h2 class="section-title">About the Place</h2>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="placeDesc">Description</label>
+          <textarea
+            id="placeDesc"
+            rows="6"
+            placeholder="Describe the vibe, the crowd, what makes it special… speak freely"
+          ></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Ambience</label>
+          <div class="slider-wrap">
+            <input type="range" id="ambienceSlider" min="0" max="10" step="0.5" value="5"
+              oninput="updateSlider(this, 'ambienceVal')" />
+            <div class="slider-val" id="ambienceVal">5</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label">Service</label>
+          <div class="slider-wrap">
+            <input type="range" id="serviceSlider" min="0" max="10" step="0.5" value="5"
+              oninput="updateSlider(this, 'serviceVal')" />
+            <div class="slider-val" id="serviceVal">5</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ④ Items ──────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-num">04</span>
+          <h2 class="section-title">Items</h2>
+        </div>
+
+        <div class="items-list" id="itemsList"></div>
+
+        <button type="button" class="add-item-btn" onclick="addItem()">
+          <span>＋</span>
+          <span>Add Item</span>
+        </button>
+      </div>
+
+      <!-- ⑤ Submit ─────────────────────────────────────── -->
+      <div class="section">
+        <button type="submit" class="submit-btn" id="submitBtn">
+          <span id="submitLabel">SUBMIT</span>
+        </button>
+        <div class="banner banner-success" id="successBanner"></div>
+        <div class="banner banner-error" id="errorBanner"></div>
+      </div>
+
+    </form>
+  </main>
+
+  <script>
+    /* ── Slug generation ───────────────────────────── */
+    function toSlug(str) {
+      return str.toLowerCase().trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+
+    let currentSlug = '';
+
+    document.getElementById('placeName').addEventListener('input', function () {
+      currentSlug = toSlug(this.value);
+      const hint = document.getElementById('slugHint');
+      hint.innerHTML = currentSlug ? `<span>${currentSlug}</span>` : '';
+    });
+
+    /* ── Pills (with Other support) ────────────────── */
+    function wirePills(group) {
+      const mode = group.dataset.mode;
+      group.querySelectorAll('.pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          const isOther = pill.dataset.other;
+          if (mode === 'single') {
+            group.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+            pill.classList.toggle('selected');
+            // handle other wrap
+            const wrap = document.getElementById(group.id.replace('Pills', 'OtherWrap') + '') ||
+                         (group.id === 'placeTypePills' ? document.getElementById('typeOtherWrap') : null);
+            if (wrap) wrap.classList.toggle('visible', !!(isOther && pill.classList.contains('selected')));
+          } else {
+            pill.classList.toggle('selected');
+            const wrap = group.id === 'cuisinePills' ? document.getElementById('cuisineOtherWrap') : null;
+            if (wrap && isOther) wrap.classList.toggle('visible', pill.classList.contains('selected'));
+          }
+        });
+      });
+    }
+
+    document.querySelectorAll('.pills').forEach(wirePills);
+
+    function getPillValues(groupId) {
+      const selected = [...document.querySelectorAll(`#${groupId} .pill.selected`)];
+      const values = selected
+        .filter(p => !p.dataset.other)
+        .map(p => p.dataset.value);
+      // include other input value if other is selected
+      if (selected.some(p => p.dataset.other)) {
+        if (groupId === 'cuisinePills') {
+          const v = document.getElementById('cuisineOtherInput').value.trim();
+          if (v) values.push(v);
+        }
+      }
+      return values;
+    }
+
+    function getSinglePill(groupId) {
+      const el = document.querySelector(`#${groupId} .pill.selected`);
+      if (!el) return '';
+      if (el.dataset.other) {
+        return (groupId === 'placeTypePills'
+          ? document.getElementById('typeOtherInput').value.trim()
+          : '');
+      }
+      return el.dataset.value;
+    }
+
+    /* ── Price tier ────────────────────────────────── */
+    function selectPrice(card) {
+      document.querySelectorAll('.price-card').forEach(c => c.classList.remove('selected'));
+      card.classList.toggle('selected');
+    }
+
+    function getSelectedPrice() {
+      const el = document.querySelector('.price-card.selected');
+      return el ? el.dataset.value : '';
+    }
+
+    /* ── Veg toggle ────────────────────────────────── */
+    document.getElementById('vegFriendly').addEventListener('change', function () {
+      document.getElementById('vegLabel').textContent = this.checked ? 'Yes' : 'No';
+    });
+
+    /* ── Range sliders ─────────────────────────────── */
+    function updateSlider(input, valId) {
+      const pct = ((input.value - input.min) / (input.max - input.min)) * 100;
+      input.style.backgroundSize = `${pct}% 100%`;
+      document.getElementById(valId).textContent = parseFloat(input.value).toString();
+    }
+
+    document.querySelectorAll('input[type="range"]').forEach(el => {
+      const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+      el.style.backgroundSize = `${pct}% 100%`;
+    });
+
+    /* ── GPS ───────────────────────────────────────── */
+    function setGpsStrip(state, text, lat, lng) {
+      const strip = document.getElementById('gpsStrip');
+      const textEl = document.getElementById('gpsStatusText');
+      const coordsEl = document.getElementById('gpsCoordsText');
+      const mapsLink = document.getElementById('gpsMapsLink');
+
+      strip.className = `gps-strip ${state}`;
+      textEl.textContent = text;
+
+      if (lat && lng) {
+        coordsEl.textContent = `${lat}, ${lng}`;
+        mapsLink.href = `https://maps.google.com/?q=${lat},${lng}`;
+        mapsLink.style.display = 'inline';
+      } else {
+        coordsEl.textContent = '';
+        mapsLink.style.display = 'none';
+      }
+    }
+
+    function captureGPS() {
+      if (!navigator.geolocation) {
+        setGpsStrip('error', 'Geolocation not supported');
+        return;
+      }
+      setGpsStrip('acquiring', 'Acquiring…');
+      document.getElementById('latInput').value = '';
+      document.getElementById('lngInput').value = '';
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lng = pos.coords.longitude.toFixed(6);
+          document.getElementById('latInput').value = lat;
+          document.getElementById('lngInput').value = lng;
+          setGpsStrip('success', 'Location captured', lat, lng);
+        },
+        err => {
+          setGpsStrip('error', `Could not capture: ${err.message}`);
+        },
+        { enableHighAccuracy: true, timeout: 12000 }
+      );
+    }
+
+    function toggleGpsUpdate() {
+      const panel = document.getElementById('gpsUpdatePanel');
+      panel.classList.toggle('visible');
+    }
+
+    function closeGpsUpdate() {
+      document.getElementById('gpsUpdatePanel').classList.remove('visible');
+    }
+
+    function applyManual() {
+      const lat = document.getElementById('latManual').value.trim();
+      const lng = document.getElementById('lngManual').value.trim();
+      if (lat && lng) {
+        document.getElementById('latInput').value = lat;
+        document.getElementById('lngInput').value = lng;
+        setGpsStrip('success', 'Manual location set', parseFloat(lat).toFixed(6), parseFloat(lng).toFixed(6));
+      }
+    }
+
+    // Auto-capture on load
+    captureGPS();
+
+    /* ── Item cards ────────────────────────────────── */
+    let itemCount = 0;
+
+    function addItem() {
+      itemCount++;
+      const id = itemCount;
+      const list = document.getElementById('itemsList');
+      const card = document.createElement('div');
+      card.className = 'item-card';
+      card.dataset.itemId = id;
+
+      card.innerHTML = `
+        <button type="button" class="item-remove" onclick="removeItem(${id})" aria-label="Remove item">×</button>
+        <div class="item-num">Item ${id}</div>
+
+        <div class="item-field">
+          <label class="field-label">Name</label>
+          <input type="text" class="item-name" placeholder="What did you eat?" autocomplete="off" />
+        </div>
+
+        <div class="item-field">
+          <label class="field-label">Diet</label>
+          <div class="pills item-diet-pills" data-mode="single">
+            <button type="button" class="pill" data-diet="Veg" data-value="Veg">Veg</button>
+            <button type="button" class="pill" data-diet="Non-Veg" data-value="Non-Veg">Non-Veg</button>
+            <button type="button" class="pill" data-diet="Vegan" data-value="Vegan">Vegan</button>
+            <button type="button" class="pill" data-diet="Egg" data-value="Egg">Egg</button>
+          </div>
+        </div>
+
+        <div class="item-field">
+          <label class="field-label">Rating</label>
+          <div class="slider-wrap">
+            <input type="range" class="item-rating-slider"
+              min="0" max="10" step="0.5" value="5"
+              oninput="updateSlider(this, 'itemRatingVal${id}')" />
+            <div class="slider-val" id="itemRatingVal${id}">5</div>
+          </div>
+        </div>
+
+        <div class="item-field">
+          <label class="field-label">Course</label>
+          <div class="pills item-course-pills" data-mode="multi">
+            <button type="button" class="pill" data-value="Starter">Starter</button>
+            <button type="button" class="pill" data-value="Main">Main</button>
+            <button type="button" class="pill" data-value="Dessert">Dessert</button>
+            <button type="button" class="pill" data-value="Beverage">Beverage</button>
+            <button type="button" class="pill" data-value="Snack">Snack</button>
+          </div>
+        </div>
+
+        <div class="item-field">
+          <label class="field-label">Meal Time</label>
+          <div class="pills item-mealtime-pills" data-mode="multi">
+            <button type="button" class="pill" data-value="Breakfast">Breakfast</button>
+            <button type="button" class="pill" data-value="Lunch">Lunch</button>
+            <button type="button" class="pill" data-value="Dinner">Dinner</button>
+            <button type="button" class="pill" data-value="Late Night">Late Night</button>
+          </div>
+        </div>
+
+        <div class="item-field">
+          <label class="field-label">Notes</label>
+          <textarea class="item-desc" rows="3" placeholder="What made it special? Any caveats?"></textarea>
+        </div>
+      `;
+
+      card.querySelectorAll('.pills').forEach(group => {
+        const mode = group.dataset.mode;
+        group.querySelectorAll('.pill').forEach(pill => {
+          pill.addEventListener('click', () => {
+            if (mode === 'single') {
+              group.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+              pill.classList.toggle('selected');
+            } else {
+              pill.classList.toggle('selected');
+            }
+          });
+        });
+      });
+
+      const slider = card.querySelector('.item-rating-slider');
+      const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+      slider.style.backgroundSize = `${pct}% 100%`;
+
+      list.appendChild(card);
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function removeItem(id) {
+      const card = document.querySelector(`.item-card[data-item-id="${id}"]`);
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(-6px)';
+        card.style.transition = 'opacity 150ms ease, transform 150ms ease';
+        setTimeout(() => card.remove(), 150);
+      }
+    }
+
+    function collectItems() {
+      return [...document.querySelectorAll('.item-card')].map(card => {
+        const dietPill = card.querySelector('.item-diet-pills .pill.selected');
+        const coursePills = [...card.querySelectorAll('.item-course-pills .pill.selected')];
+        const mealPills = [...card.querySelectorAll('.item-mealtime-pills .pill.selected')];
+        const slider = card.querySelector('.item-rating-slider');
+        return {
+          name:        (card.querySelector('.item-name')?.value || '').trim(),
+          diet:        dietPill ? dietPill.dataset.value : '',
+          rating:      slider ? parseFloat(slider.value) : null,
+          course:      coursePills.map(p => p.dataset.value),
+          meal_time:   mealPills.map(p => p.dataset.value),
+          description: (card.querySelector('.item-desc')?.value || '').trim(),
+        };
+      }).filter(i => i.name);
+    }
+
+    /* ── Form submission ───────────────────────────── */
+    document.getElementById('placeForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById('placeName').value.trim();
+      if (!name) { document.getElementById('placeName').focus(); return; }
+
+      const btn = document.getElementById('submitBtn');
+      const label = document.getElementById('submitLabel');
+      btn.disabled = true;
+      label.innerHTML = '<div class="spinner"></div>';
+
+      document.getElementById('successBanner').classList.remove('visible');
+      document.getElementById('errorBanner').classList.remove('visible');
+
+      const payload = {
+        name,
+        slug:            currentSlug,
+        area:            document.getElementById('placeArea').value.trim(),
+        type:            getSinglePill('placeTypePills'),
+        cuisines:        getPillValues('cuisinePills'),
+        veg_friendly:    document.getElementById('vegFriendly').checked,
+        lat:             document.getElementById('latInput').value || null,
+        lng:             document.getElementById('lngInput').value || null,
+        price_tier:      getSelectedPrice(),
+        description:     document.getElementById('placeDesc').value.trim(),
+        ambience_rating: parseFloat(document.getElementById('ambienceSlider').value),
+        service_rating:  parseFloat(document.getElementById('serviceSlider').value),
+        items:           collectItems(),
+      };
+
+      try {
+        const res = await fetch('/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          const banner = document.getElementById('successBanner');
+          banner.innerHTML = `Submitted. <a href="${data.notion_url}" target="_blank" rel="noopener">View in CMS ↗</a>`;
+          banner.classList.add('visible');
+          banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+          document.getElementById('placeForm').reset();
+          currentSlug = '';
+          document.getElementById('slugHint').innerHTML = '';
+          document.querySelectorAll('.pill.selected').forEach(p => p.classList.remove('selected'));
+          document.querySelectorAll('.price-card.selected').forEach(c => c.classList.remove('selected'));
+          document.querySelectorAll('.other-input-wrap.visible').forEach(w => w.classList.remove('visible'));
+          document.getElementById('gpsUpdatePanel').classList.remove('visible');
+          document.getElementById('latManual').value = '';
+          document.getElementById('lngManual').value = '';
+          document.getElementById('itemsList').innerHTML = '';
+          itemCount = 0;
+          document.getElementById('vegLabel').textContent = 'No';
+          document.querySelectorAll('input[type="range"]').forEach(el => {
+            el.value = 5;
+            const valId = el.id === 'ambienceSlider' ? 'ambienceVal' : el.id === 'serviceSlider' ? 'serviceVal' : null;
+            if (valId) updateSlider(el, valId);
+          });
+          captureGPS();
+        } else {
+          throw new Error(data.detail || 'Submission failed');
+        }
+      } catch (err) {
+        const banner = document.getElementById('errorBanner');
+        banner.textContent = err.message || 'Something went wrong. Try again.';
+        banner.classList.add('visible');
+      } finally {
+        btn.disabled = false;
+        label.textContent = 'SUBMIT';
+      }
+    });
+
+    // Add first item on load
+    addItem();
+  </script>
+
+</body>
+</html>
