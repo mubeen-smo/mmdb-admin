@@ -55,7 +55,7 @@ async def root(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @app.get("/auth/google")
@@ -82,7 +82,7 @@ async def logout(request: Request):
 
 @app.get("/submit", response_class=HTMLResponse)
 async def submit_page(request: Request, _=Depends(require_auth)):
-    return templates.TemplateResponse("submit.html", {"request": request, "user": get_session(request)})
+    return templates.TemplateResponse(request, "submit.html", {"user": get_session(request)})
 
 
 @app.post("/submit")
