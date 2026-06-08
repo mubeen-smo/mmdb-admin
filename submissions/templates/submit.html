@@ -1434,9 +1434,8 @@
 
         if (res.ok && data.success) {
           const banner = document.getElementById('successBanner');
-          const notionLink = data.notion_url ? ` <a href="${data.notion_url}" target="_blank" rel="noopener">View in Notion ↗</a>` : '';
-          const warning = data.warning ? `<br><span style="color:#d4c44a;font-size:12px">${data.warning}</span>` : '';
-          banner.innerHTML = `Saved to Supabase.${notionLink}${warning}`;
+          const itemNote = data.item_errors?.length ? `<br><span style="color:#d4c44a;font-size:12px">Item errors: ${data.item_errors.join(', ')}</span>` : '';
+          banner.innerHTML = `Saved.${itemNote}`;
           banner.classList.add('visible');
           banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
