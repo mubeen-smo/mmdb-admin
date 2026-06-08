@@ -1184,7 +1184,9 @@
 
         if (res.ok && data.success) {
           const banner = document.getElementById('successBanner');
-          banner.innerHTML = `Submitted. <a href="${data.notion_url}" target="_blank" rel="noopener">View in CMS ↗</a>`;
+          const notionLink = data.notion_url ? ` <a href="${data.notion_url}" target="_blank" rel="noopener">View in Notion ↗</a>` : '';
+          const warning = data.warning ? `<br><span style="color:#d4c44a;font-size:12px">${data.warning}</span>` : '';
+          banner.innerHTML = `Saved to Supabase.${notionLink}${warning}`;
           banner.classList.add('visible');
           banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 

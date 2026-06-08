@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import traceback
@@ -8,6 +9,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from notion_client import Client as NotionClient
 from dotenv import load_dotenv
+from sync.supabase_client import upsert_item, upsert_place
 
 load_dotenv()
 
@@ -100,14 +102,48 @@ async def submit_place(request: Request, _=Depends(require_auth)):
     data = await request.json()
 
     name = data.get("name", "").strip()
-    slug = data.get("slug", "").strip() or re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if not name:
+        return JSONResponse({"success": False, "error": "Name is required"}, status_code=400)
 
+    slug = data.get("slug", "").strip() or re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    lat = float(data["lat"]) if data.get("lat") else None
+    lng = float(data["lng"]) if data.get("lng") else None
+    price_tier_raw = data.get("price_tier")
+    price_tier_int = int(price_tier_raw) if price_tier_raw else None
+
+    # ── 1. Supabase place (must complete first — items need place_id) ─
+    place_row = {
+        "place_name":      name,
+        "area":            data.get("area") or None,
+        "type":            data.get("type") or None,
+        "cuisines":        data.get("cuisines") or None,
+        "veg_friendly":    bool(data.get("veg_friendly", False)),
+        "price_tier":      price_tier_int,
+        "description":     data.get("description") or None,
+        "ambience_rating": data.get("ambience_rating"),
+        "service_rating":  data.get("service_rating"),
+        "latitude":        lat,
+        "longitude":       lng,
+    }
+
+    try:
+        place_id = await asyncio.to_thread(upsert_place, place_row)
+    except Exception as exc:
+        traceback.print_exc()
+        return JSONResponse(
+            {"success": False, "error": f"Supabase error: {exc}"},
+            status_code=502,
+        )
+
+    items = data.get("items", [])
+
+    # ── 2. Notion (best-effort) ────────────────────────────────
     price_map = {"1": "1 - Budget", "2": "2 - Moderate", "3": "3 - Pricey", "4": "4 - Premium"}
-    price_tier = price_map.get(str(data.get("price_tier", "")), None)
+    price_label = price_map.get(str(price_tier_raw or ""), None)
 
     properties = {
-        "Name": {"title": [{"text": {"content": name}}]},
-        "Slug": {"rich_text": [{"text": {"content": slug}}]},
+        "Name":   {"title": [{"text": {"content": name}}]},
+        "Slug":   {"rich_text": [{"text": {"content": slug}}]},
         "Status": {"select": {"name": "draft"}},
     }
     if data.get("area"):
@@ -118,34 +154,25 @@ async def submit_place(request: Request, _=Depends(require_auth)):
         properties["Cuisines"] = {"multi_select": [{"name": c} for c in data["cuisines"]]}
     if "veg_friendly" in data:
         properties["Veg Friendly"] = {"checkbox": bool(data["veg_friendly"])}
-    if price_tier:
-        properties["Price Tier"] = {"select": {"name": price_tier}}
+    if price_label:
+        properties["Price Tier"] = {"select": {"name": price_label}}
     if data.get("ambience_rating") is not None:
         properties["Ambience Rating"] = {"rich_text": [{"text": {"content": str(data["ambience_rating"])}}]}
     if data.get("service_rating") is not None:
         properties["Service Rating"] = {"rich_text": [{"text": {"content": str(data["service_rating"])}}]}
 
-    blocks = []
-    blocks.append({"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "Place Info"}}]}})
-
-    lat, lng = data.get("lat"), data.get("lng")
+    blocks = [{"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "Place Info"}}]}}]
     if lat and lng:
         blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [
             {"text": {"content": f"Location: {lat}° N, {lng}° E", "link": {"url": f"https://maps.google.com/?q={lat},{lng}"}}}
         ]}})
-
     if data.get("description"):
-        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": "Description:"}}]}})
         blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": data["description"]}}]}})
-
     if data.get("ambience_rating") is not None:
-        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": f"Ambience Rating: {data['ambience_rating']} / 10"}}]}})
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": f"Ambience: {data['ambience_rating']} / 10"}}]}})
     if data.get("service_rating") is not None:
-        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": f"Service Rating: {data['service_rating']} / 10"}}]}})
-    if data.get("notes"):
-        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": data["notes"]}}]}})
+        blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": f"Service: {data['service_rating']} / 10"}}]}})
 
-    items = data.get("items", [])
     if items:
         blocks.append({"object": "block", "type": "divider", "divider": {}})
         blocks.append({"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"text": {"content": "Items"}}]}})
@@ -154,29 +181,68 @@ async def submit_place(request: Request, _=Depends(require_auth)):
                 continue
             blocks.append({"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"text": {"content": item["name"]}}]}})
             for part in [
-                f"Diet: {item['diet'].replace('_', '-').title()}" if item.get("diet") else None,
-                f"Rating: {item['rating']} / 10" if item.get("rating") is not None else None,
+                f"Diet: {item['diet']}" if item.get("diet") else None,
+                f"Rating: {item.get('rating')} / 10" if item.get("rating") is not None else None,
                 f"Course: {', '.join(item['course'])}" if item.get("course") else None,
                 f"Meal Time: {', '.join(item['meal_time'])}" if item.get("meal_time") else None,
+                item.get("description") or None,
             ]:
                 if part:
                     blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": part}}]}})
-            if item.get("description"):
-                blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": item["description"]}}]}})
 
-    try:
-        page = notion.pages.create(
-            parent={"database_id": NOTION_PLACES_DB_ID},
-            properties=properties,
-            children=blocks[:100],
-        )
-        if len(blocks) > 100:
-            notion.blocks.children.append(page["id"], children=blocks[100:200])
-    except Exception as exc:
-        traceback.print_exc()
-        return JSONResponse(
-            {"success": False, "error": f"Notion error: {exc}"},
-            status_code=502,
-        )
+    # ── 2. Supabase items + Notion page — run in parallel ─────────
+    async def _write_items() -> list[str]:
+        errors: list[str] = []
+        for item in items:
+            if not item.get("name"):
+                continue
+            item_row = {
+                "item":        item["name"].strip(),
+                "place_id":    place_id,
+                "place_name":  name,
+                "diet":        item.get("diet") or None,
+                "course":      item.get("course") or None,
+                "meal_time":   item.get("meal_time") or None,
+                "item_rating": item.get("rating"),
+                "description": item.get("description") or None,
+                "signature":   False,
+            }
+            try:
+                await asyncio.to_thread(upsert_item, item_row)
+            except Exception as exc:
+                traceback.print_exc()
+                errors.append(f"{item['name']}: {exc}")
+        return errors
 
-    return JSONResponse({"success": True, "notion_url": page.get("url", "")})
+    async def _write_notion() -> tuple[str, str]:
+        try:
+            page = await asyncio.to_thread(
+                notion.pages.create,
+                parent={"database_id": NOTION_PLACES_DB_ID},
+                properties=properties,
+                children=blocks[:100],
+            )
+            if len(blocks) > 100:
+                await asyncio.to_thread(
+                    notion.blocks.children.append,
+                    page["id"],
+                    children=blocks[100:200],
+                )
+            return page.get("url", ""), ""
+        except Exception as exc:
+            traceback.print_exc()
+            return "", str(exc)
+
+    (item_errors, (notion_url, notion_err)) = await asyncio.gather(
+        _write_items(),
+        _write_notion(),
+    )
+
+    notion_warning = f"Saved to Supabase, but Notion sync failed: {notion_err}" if notion_err else ""
+
+    return JSONResponse({
+        "success":     True,
+        "notion_url":  notion_url,
+        "warning":     notion_warning,
+        "item_errors": item_errors,
+    })
