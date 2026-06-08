@@ -9,7 +9,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from notion_client import Client as NotionClient
 from dotenv import load_dotenv
-from sync.supabase_client import upsert_item, upsert_place
+from sync.supabase_client import get_client as get_supabase, upsert_item, upsert_place
 
 load_dotenv()
 
@@ -97,9 +97,43 @@ async def submit_page(request: Request, _=Depends(require_auth)):
     return templates.TemplateResponse(request, "submit.html", {"user": get_session(request)})
 
 
+@app.get("/api/places")
+async def api_places(q: str = "", _=Depends(require_auth)):
+    sb = await asyncio.to_thread(get_supabase)
+    query = (
+        sb.table("places_table")
+        .select("place_id,place_name,area,type,cuisines,veg_friendly,price_tier,ambience_rating,service_rating,latitude,longitude")
+        .order("place_name")
+        .limit(20)
+    )
+    if q:
+        query = query.ilike("place_name", f"%{q}%")
+    result = await asyncio.to_thread(query.execute)
+    return JSONResponse(result.data)
+
+
+@app.get("/api/items")
+async def api_items(q: str = "", place_id: int | None = None, _=Depends(require_auth)):
+    sb = await asyncio.to_thread(get_supabase)
+    query = (
+        sb.table("items_table")
+        .select("item_id,item,place_id,diet,course,meal_time,item_rating,description,signature")
+        .order("item")
+        .limit(20)
+    )
+    if q:
+        query = query.ilike("item", f"%{q}%")
+    if place_id is not None:
+        query = query.eq("place_id", place_id)
+    result = await asyncio.to_thread(query.execute)
+    return JSONResponse(result.data)
+
+
 @app.post("/submit")
 async def submit_place(request: Request, _=Depends(require_auth)):
     data = await request.json()
+    import json as _json
+    print(f"[submit] payload: {_json.dumps(data, ensure_ascii=False, default=str)}")
 
     name = data.get("name", "").strip()
     if not name:

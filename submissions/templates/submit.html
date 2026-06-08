@@ -625,6 +625,59 @@
 
     .banner a { color: var(--amber); text-decoration: underline; }
 
+    /* ── Autocomplete ───────────────────────────────── */
+    .ac-wrap { position: relative; }
+
+    .ac-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--amber-dim);
+      border-radius: var(--radius);
+      z-index: 200;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+
+    .ac-dropdown.open { display: block; }
+
+    .ac-item {
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.active { background: var(--bg-lift); }
+
+    .ac-item-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .ac-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--amber);
+      background: var(--amber-glow);
+      border: 1px solid var(--amber-dim);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     /* ── Spinner ─────────────────────────────────────── */
     .spinner {
       width: 20px; height: 20px;
@@ -662,16 +715,19 @@
 
         <div class="field">
           <label class="field-label">Name</label>
-          <input
-            type="text"
-            id="placeName"
-            class="input-hero"
-            placeholder="Where are you?"
-            autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-            required
-          />
+          <div class="ac-wrap">
+            <input
+              type="text"
+              id="placeName"
+              class="input-hero"
+              placeholder="Where are you?"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              required
+            />
+            <div class="ac-dropdown" id="placeAcDropdown"></div>
+          </div>
           <div class="slug-hint" id="slugHint"></div>
         </div>
 
@@ -860,6 +916,199 @@
   </main>
 
   <script>
+    /* ── Autocomplete core ─────────────────────────── */
+    let _selectedPlaceId = null;
+
+    function makeAutocomplete({ input, dropdown, fetchFn, renderItem, onSelect }) {
+      let items = [], activeIdx = -1, debounceTimer;
+
+      function open(results) {
+        items = results;
+        activeIdx = -1;
+        dropdown.innerHTML = '';
+        if (!results.length) { dropdown.classList.remove('open'); return; }
+        results.forEach((item, i) => {
+          const el = document.createElement('div');
+          el.className = 'ac-item';
+          el.innerHTML = renderItem(item);
+          el.addEventListener('mousedown', e => { e.preventDefault(); select(i); });
+          el.addEventListener('mousemove', () => { setActive(i); });
+          dropdown.appendChild(el);
+        });
+        dropdown.classList.add('open');
+      }
+
+      function close() { dropdown.classList.remove('open'); items = []; activeIdx = -1; }
+
+      function setActive(i) {
+        dropdown.querySelectorAll('.ac-item').forEach((el, j) => el.classList.toggle('active', j === i));
+        activeIdx = i;
+      }
+
+      function select(i) {
+        if (i < 0 || i >= items.length) return;
+        input.value = items[i]._label || items[i].place_name || items[i].item;
+        onSelect(items[i]);
+        close();
+      }
+
+      input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const q = input.value.trim();
+        if (!q) { close(); return; }
+        debounceTimer = setTimeout(async () => {
+          const results = await fetchFn(q);
+          open(results);
+        }, 220);
+      });
+
+      input.addEventListener('keydown', e => {
+        if (!dropdown.classList.contains('open')) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, items.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0)); }
+        else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); select(activeIdx); }
+        else if (e.key === 'Escape') close();
+      });
+
+      document.addEventListener('click', e => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) close();
+      });
+    }
+
+    /* ── Place autosuggest ─────────────────────────── */
+    async function fetchPlaces(q) {
+      const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`);
+      return res.ok ? res.json() : [];
+    }
+
+    function applyPlaceData(place) {
+      _selectedPlaceId = place.place_id;
+
+      // area
+      if (place.area) document.getElementById('placeArea').value = place.area;
+
+      // type pill
+      const typePills = document.getElementById('placeTypePills');
+      typePills.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+      const typeVal = (place.type || '').toLowerCase();
+      let typeMatched = false;
+      typePills.querySelectorAll('.pill:not([data-other])').forEach(p => {
+        if (p.dataset.value === typeVal) { p.classList.add('selected'); typeMatched = true; }
+      });
+      if (!typeMatched && place.type) {
+        const otherPill = typePills.querySelector('[data-other]');
+        if (otherPill) { otherPill.classList.add('selected'); document.getElementById('typeOtherWrap').classList.add('visible'); document.getElementById('typeOtherInput').value = place.type; }
+      } else {
+        document.getElementById('typeOtherWrap').classList.remove('visible');
+      }
+
+      // cuisines
+      const cuisinePills = document.getElementById('cuisinePills');
+      cuisinePills.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+      (place.cuisines || []).forEach(c => {
+        cuisinePills.querySelectorAll('.pill:not([data-other])').forEach(p => {
+          if (p.dataset.value === c) p.classList.add('selected');
+        });
+      });
+
+      // veg
+      const vegEl = document.getElementById('vegFriendly');
+      vegEl.checked = !!place.veg_friendly;
+      document.getElementById('vegLabel').textContent = vegEl.checked ? 'Yes' : 'No';
+
+      // price tier
+      document.querySelectorAll('.price-card').forEach(c => {
+        c.classList.toggle('selected', String(c.dataset.value) === String(place.price_tier || ''));
+      });
+
+      // ratings
+      if (place.ambience_rating != null) {
+        const sl = document.getElementById('ambienceSlider');
+        sl.value = place.ambience_rating;
+        updateSlider(sl, 'ambienceVal');
+      }
+      if (place.service_rating != null) {
+        const sl = document.getElementById('serviceSlider');
+        sl.value = place.service_rating;
+        updateSlider(sl, 'serviceVal');
+      }
+
+      // GPS — keep existing capture unless place has coords
+      if (place.latitude && place.longitude) {
+        document.getElementById('latInput').value = place.latitude;
+        document.getElementById('lngInput').value = place.longitude;
+        setGpsStrip('success', 'From database', parseFloat(place.latitude).toFixed(6), parseFloat(place.longitude).toFixed(6));
+      }
+    }
+
+    makeAutocomplete({
+      input: document.getElementById('placeName'),
+      dropdown: document.getElementById('placeAcDropdown'),
+      fetchFn: fetchPlaces,
+      renderItem: p => {
+        const sub = [p.type, p.area].filter(Boolean).join(' · ');
+        return `<span>${p.place_name}<span class="ac-badge">existing</span></span>${sub ? `<span class="ac-item-sub">${sub}</span>` : ''}`;
+      },
+      onSelect: p => {
+        // slug
+        currentSlug = toSlug(p.place_name);
+        document.getElementById('slugHint').innerHTML = currentSlug ? `<span>${currentSlug}</span>` : '';
+        applyPlaceData(p);
+      },
+    });
+
+    /* ── Item autosuggest (called per card) ────────── */
+    async function fetchItems(q) {
+      const params = new URLSearchParams({ q });
+      if (_selectedPlaceId) params.set('place_id', _selectedPlaceId);
+      const res = await fetch(`/api/items?${params}`);
+      return res.ok ? res.json() : [];
+    }
+
+    function wireItemAutocomplete(card) {
+      const input = card.querySelector('.item-name');
+      const dropdown = document.createElement('div');
+      dropdown.className = 'ac-dropdown';
+      input.parentNode.style.position = 'relative';
+      input.after(dropdown);
+
+      makeAutocomplete({
+        input,
+        dropdown,
+        fetchFn: fetchItems,
+        renderItem: i => {
+          const sub = [i.diet, ...(i.course || [])].filter(Boolean).join(' · ');
+          return `<span>${i.item}<span class="ac-badge">existing</span></span>${sub ? `<span class="ac-item-sub">${sub}</span>` : ''}`;
+        },
+        onSelect: item => {
+          // diet
+          card.querySelectorAll('.item-diet-pills .pill').forEach(p => {
+            p.classList.toggle('selected', p.dataset.value === item.diet);
+          });
+          // rating
+          if (item.item_rating != null) {
+            const sl = card.querySelector('.item-rating-slider');
+            const valEl = card.querySelector('.slider-val');
+            sl.value = item.item_rating;
+            if (valEl) { valEl.textContent = parseFloat(sl.value).toString(); }
+            const pct = ((sl.value - sl.min) / (sl.max - sl.min)) * 100;
+            sl.style.backgroundSize = `${pct}% 100%`;
+          }
+          // course
+          card.querySelectorAll('.item-course-pills .pill').forEach(p => {
+            p.classList.toggle('selected', (item.course || []).includes(p.dataset.value));
+          });
+          // meal time
+          card.querySelectorAll('.item-mealtime-pills .pill').forEach(p => {
+            p.classList.toggle('selected', (item.meal_time || []).includes(p.dataset.value));
+          });
+          // description
+          const descEl = card.querySelector('.item-desc');
+          if (descEl && item.description) descEl.value = item.description;
+        },
+      });
+    }
+
     /* ── Slug generation ───────────────────────────── */
     function toSlug(str) {
       return str.toLowerCase().trim()
@@ -1107,6 +1356,7 @@
       slider.style.backgroundSize = `${pct}% 100%`;
 
       list.appendChild(card);
+      wireItemAutocomplete(card);
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
