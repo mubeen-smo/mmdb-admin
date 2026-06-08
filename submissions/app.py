@@ -1,7 +1,8 @@
 import os
 import re
+import traceback
 from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
@@ -22,6 +23,15 @@ notion = NotionClient(auth=NOTION_API_KEY)
 
 app = FastAPI(title="MMDb Admin — Submissions")
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
+
+@app.exception_handler(Exception)
+async def _json_error_handler(request: Request, exc: Exception):
+    traceback.print_exc()
+    return JSONResponse(
+        {"success": False, "error": str(exc)},
+        status_code=500,
+    )
 
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 
@@ -154,12 +164,19 @@ async def submit_place(request: Request, _=Depends(require_auth)):
             if item.get("description"):
                 blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"text": {"content": item["description"]}}]}})
 
-    page = notion.pages.create(
-        parent={"database_id": NOTION_PLACES_DB_ID},
-        properties=properties,
-        children=blocks[:100],
-    )
-    if len(blocks) > 100:
-        notion.blocks.children.append(page["id"], children=blocks[100:200])
+    try:
+        page = notion.pages.create(
+            parent={"database_id": NOTION_PLACES_DB_ID},
+            properties=properties,
+            children=blocks[:100],
+        )
+        if len(blocks) > 100:
+            notion.blocks.children.append(page["id"], children=blocks[100:200])
+    except Exception as exc:
+        traceback.print_exc()
+        return JSONResponse(
+            {"success": False, "error": f"Notion error: {exc}"},
+            status_code=502,
+        )
 
     return JSONResponse({"success": True, "notion_url": page.get("url", "")})

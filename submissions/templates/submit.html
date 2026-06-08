@@ -1174,7 +1174,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error(`Server error ${res.status} — check Render logs`);
+        }
 
         if (res.ok && data.success) {
           const banner = document.getElementById('successBanner');
@@ -1201,7 +1207,7 @@
           });
           captureGPS();
         } else {
-          throw new Error(data.detail || 'Submission failed');
+          throw new Error(data.error || data.detail || 'Submission failed');
         }
       } catch (err) {
         const banner = document.getElementById('errorBanner');
