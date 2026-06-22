@@ -175,7 +175,7 @@ async def submit_place(request: Request, _=Depends(require_auth)):
             "item":        item["name"].strip(),
             "place_id":    place_id,
             "place_name":  name,
-            "diet":        item.get("diet") or None,
+            "diet":        (item.get("diet") or "").lower() or None,
             "course":      item.get("course") or None,
             "meal_time":   item.get("meal_time") or None,
             "item_rating": item.get("rating"),

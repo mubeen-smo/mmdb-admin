@@ -1204,6 +1204,17 @@
       el.style.backgroundSize = `${pct}% 100%`;
     });
 
+    // Autosave draft on any input change
+    let _draftTimer;
+    document.getElementById('placeForm').addEventListener('input', () => {
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(saveDraft, 600);
+    });
+    document.getElementById('placeForm').addEventListener('click', () => {
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(saveDraft, 600);
+    });
+
     /* ── GPS ───────────────────────────────────────── */
     function setGpsStrip(state, text, lat, lng) {
       const strip = document.getElementById('gpsStrip');
@@ -1293,10 +1304,10 @@
         <div class="item-field">
           <label class="field-label">Diet</label>
           <div class="pills item-diet-pills" data-mode="single">
-            <button type="button" class="pill" data-diet="Veg" data-value="Veg">Veg</button>
-            <button type="button" class="pill" data-diet="Non-Veg" data-value="Non-Veg">Non-Veg</button>
-            <button type="button" class="pill" data-diet="Vegan" data-value="Vegan">Vegan</button>
-            <button type="button" class="pill" data-diet="Egg" data-value="Egg">Egg</button>
+            <button type="button" class="pill" data-diet="Veg"     data-value="veg">Veg</button>
+            <button type="button" class="pill" data-diet="Non-Veg" data-value="non_veg">Non-Veg</button>
+            <button type="button" class="pill" data-diet="Vegan"   data-value="vegan">Vegan</button>
+            <button type="button" class="pill" data-diet="Egg"     data-value="egg">Egg</button>
           </div>
         </div>
 
@@ -1387,6 +1398,136 @@
       }).filter(i => i.name);
     }
 
+    /* ── Draft persistence ─────────────────────────── */
+    const DRAFT_KEY = 'mmdb_admin_draft';
+
+    function saveDraft() {
+      try {
+        const draft = {
+          name:         document.getElementById('placeName').value,
+          area:         document.getElementById('placeArea').value,
+          type:         getSinglePill('placeTypePills'),
+          typeOther:    document.getElementById('typeOtherInput').value,
+          cuisines:     getPillValues('cuisinePills'),
+          cuisineOther: document.getElementById('cuisineOtherInput').value,
+          vegFriendly:  document.getElementById('vegFriendly').checked,
+          priceTier:    getSelectedPrice(),
+          desc:         document.getElementById('placeDesc').value,
+          ambience:     document.getElementById('ambienceSlider').value,
+          service:      document.getElementById('serviceSlider').value,
+          items:        collectItems(),
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch {}
+    }
+
+    function restoreDraft() {
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+
+        if (d.name) {
+          document.getElementById('placeName').value = d.name;
+          currentSlug = toSlug(d.name);
+          document.getElementById('slugHint').innerHTML = currentSlug ? `<span>${currentSlug}</span>` : '';
+        }
+        if (d.area) document.getElementById('placeArea').value = d.area;
+        if (d.desc) document.getElementById('placeDesc').value = d.desc;
+
+        // type pill
+        if (d.type) {
+          const typePills = document.getElementById('placeTypePills');
+          typePills.querySelectorAll('.pill').forEach(p => {
+            p.classList.toggle('selected', p.dataset.value === d.type);
+          });
+          if (d.typeOther) {
+            document.getElementById('typeOtherInput').value = d.typeOther;
+            document.getElementById('typeOtherWrap').classList.add('visible');
+          }
+        }
+
+        // cuisines
+        if (d.cuisines?.length) {
+          const cuisinePills = document.getElementById('cuisinePills');
+          cuisinePills.querySelectorAll('.pill:not([data-other])').forEach(p => {
+            p.classList.toggle('selected', d.cuisines.includes(p.dataset.value));
+          });
+          if (d.cuisineOther) {
+            document.getElementById('cuisineOtherInput').value = d.cuisineOther;
+            document.getElementById('cuisineOtherWrap').classList.add('visible');
+            cuisinePills.querySelector('[data-other]')?.classList.add('selected');
+          }
+        }
+
+        // veg
+        const vegEl = document.getElementById('vegFriendly');
+        vegEl.checked = !!d.vegFriendly;
+        document.getElementById('vegLabel').textContent = vegEl.checked ? 'Yes' : 'No';
+
+        // price
+        if (d.priceTier) {
+          document.querySelectorAll('.price-card').forEach(c => {
+            c.classList.toggle('selected', c.dataset.value === String(d.priceTier));
+          });
+        }
+
+        // sliders
+        if (d.ambience) {
+          const sl = document.getElementById('ambienceSlider');
+          sl.value = d.ambience;
+          updateSlider(sl, 'ambienceVal');
+        }
+        if (d.service) {
+          const sl = document.getElementById('serviceSlider');
+          sl.value = d.service;
+          updateSlider(sl, 'serviceVal');
+        }
+
+        // items
+        if (d.items?.length) {
+          document.getElementById('itemsList').innerHTML = '';
+          itemCount = 0;
+          d.items.forEach(item => {
+            addItem();
+            const card = document.querySelector('.item-card:last-child');
+            if (!card) return;
+            const nameEl = card.querySelector('.item-name');
+            if (nameEl) nameEl.value = item.name || '';
+
+            if (item.diet) {
+              card.querySelectorAll('.item-diet-pills .pill').forEach(p => {
+                p.classList.toggle('selected', p.dataset.value === item.diet);
+              });
+            }
+            if (item.rating != null) {
+              const sl = card.querySelector('.item-rating-slider');
+              if (sl) { sl.value = item.rating; }
+              const valEl = card.querySelector('.slider-val');
+              if (valEl) valEl.textContent = parseFloat(item.rating).toString();
+              if (sl) { const pct = ((sl.value - sl.min) / (sl.max - sl.min)) * 100; sl.style.backgroundSize = `${pct}% 100%`; }
+            }
+            (item.course || []).forEach(v => {
+              card.querySelectorAll('.item-course-pills .pill').forEach(p => {
+                if (p.dataset.value === v) p.classList.add('selected');
+              });
+            });
+            (item.meal_time || []).forEach(v => {
+              card.querySelectorAll('.item-mealtime-pills .pill').forEach(p => {
+                if (p.dataset.value === v) p.classList.add('selected');
+              });
+            });
+            const descEl = card.querySelector('.item-desc');
+            if (descEl && item.description) descEl.value = item.description;
+          });
+        }
+      } catch {}
+    }
+
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    }
+
     /* ── Form submission ───────────────────────────── */
     document.getElementById('placeForm').addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -1433,30 +1574,36 @@
         }
 
         if (res.ok && data.success) {
-          const banner = document.getElementById('successBanner');
-          const itemNote = data.item_errors?.length ? `<br><span style="color:#d4c44a;font-size:12px">Item errors: ${data.item_errors.join(', ')}</span>` : '';
-          banner.innerHTML = `Saved.${itemNote}`;
+          const hasItemErrors = data.item_errors?.length > 0;
+          const banner = document.getElementById(hasItemErrors ? 'errorBanner' : 'successBanner');
+          const msg = hasItemErrors
+            ? `Place saved — but some items failed:\n${data.item_errors.join('\n')}`
+            : 'Saved successfully.';
+          banner.textContent = msg;
           banner.classList.add('visible');
           banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-          document.getElementById('placeForm').reset();
-          currentSlug = '';
-          document.getElementById('slugHint').innerHTML = '';
-          document.querySelectorAll('.pill.selected').forEach(p => p.classList.remove('selected'));
-          document.querySelectorAll('.price-card.selected').forEach(c => c.classList.remove('selected'));
-          document.querySelectorAll('.other-input-wrap.visible').forEach(w => w.classList.remove('visible'));
-          document.getElementById('gpsUpdatePanel').classList.remove('visible');
-          document.getElementById('latManual').value = '';
-          document.getElementById('lngManual').value = '';
-          document.getElementById('itemsList').innerHTML = '';
-          itemCount = 0;
-          document.getElementById('vegLabel').textContent = 'No';
-          document.querySelectorAll('input[type="range"]').forEach(el => {
-            el.value = 5;
-            const valId = el.id === 'ambienceSlider' ? 'ambienceVal' : el.id === 'serviceSlider' ? 'serviceVal' : null;
-            if (valId) updateSlider(el, valId);
-          });
-          captureGPS();
+          if (!hasItemErrors) {
+            clearDraft();
+            document.getElementById('placeForm').reset();
+            currentSlug = '';
+            document.getElementById('slugHint').innerHTML = '';
+            document.querySelectorAll('.pill.selected').forEach(p => p.classList.remove('selected'));
+            document.querySelectorAll('.price-card.selected').forEach(c => c.classList.remove('selected'));
+            document.querySelectorAll('.other-input-wrap.visible').forEach(w => w.classList.remove('visible'));
+            document.getElementById('gpsUpdatePanel').classList.remove('visible');
+            document.getElementById('latManual').value = '';
+            document.getElementById('lngManual').value = '';
+            document.getElementById('itemsList').innerHTML = '';
+            itemCount = 0;
+            document.getElementById('vegLabel').textContent = 'No';
+            document.querySelectorAll('input[type="range"]').forEach(el => {
+              el.value = 5;
+              const valId = el.id === 'ambienceSlider' ? 'ambienceVal' : el.id === 'serviceSlider' ? 'serviceVal' : null;
+              if (valId) updateSlider(el, valId);
+            });
+            captureGPS();
+          }
         } else {
           throw new Error(data.error || data.detail || 'Submission failed');
         }
@@ -1470,8 +1617,13 @@
       }
     });
 
-    // Add first item on load
-    addItem();
+    // Restore draft or start with one empty item
+    const _hasDraft = !!localStorage.getItem(DRAFT_KEY);
+    if (_hasDraft) {
+      restoreDraft();
+    } else {
+      addItem();
+    }
   </script>
 
 </body>
