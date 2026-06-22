@@ -62,7 +62,7 @@ def sync_places() -> dict:
                     "place_id": place_id,
                     "place_name": name,
                     "description": dish.get("description") or None,
-                    "diet": dish.get("diet") or None,
+                    "diet": (dish.get("diet") or "").lower() or None,
                     "item_rating": dish.get("item_rating"),
                     "course": dish.get("course") or [],
                     "meal_time": dish.get("meal_time") or [],
