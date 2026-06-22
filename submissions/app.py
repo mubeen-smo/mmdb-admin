@@ -130,6 +130,18 @@ async def api_items(q: str = "", place_id: int | None = None, _=Depends(require_
     return JSONResponse(result.data)
 
 
+@app.post("/api/embed")
+async def api_embed(_=Depends(require_auth)):
+    import asyncio
+    from embeddings.pipeline import run_embeddings
+    try:
+        results = await asyncio.to_thread(run_embeddings, "all")
+        return JSONResponse({"success": True, "results": results})
+    except Exception as exc:
+        traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=500)
+
+
 # ── Submit ────────────────────────────────────────────────────
 
 @app.post("/submit")

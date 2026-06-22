@@ -688,6 +688,38 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Embed sync button ───────────────────────────── */
+    .sync-btn {
+      font-family: 'Lato', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--amber);
+      background: none;
+      border: 1px solid var(--amber-dim);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+    .sync-btn:hover:not(:disabled) { background: var(--amber-glow); border-color: var(--amber); }
+    .sync-btn:disabled { opacity: .5; cursor: default; }
+
+    .sync-status {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-left: 4px;
+    }
+    .sync-status.ok  { color: var(--green); }
+    .sync-status.err { color: var(--red); }
   </style>
 </head>
 
@@ -699,7 +731,14 @@
       <h1>MMDb Admin</h1>
       <div class="tagline">Submissions</div>
     </div>
-    <a href="/logout"><button class="logout-btn">Sign out</button></a>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="sync-btn" id="syncBtn" onclick="runEmbedSync()">
+        <span id="syncIcon">⟳</span>
+        <span>Sync Embeddings</span>
+      </button>
+      <span class="sync-status" id="syncStatus"></span>
+      <a href="/logout"><button class="logout-btn">Sign out</button></a>
+    </div>
   </header>
 
   <!-- Form -->
@@ -1616,6 +1655,40 @@
         label.textContent = 'SUBMIT';
       }
     });
+
+    /* ── Embed sync ────────────────────────────────── */
+    async function runEmbedSync() {
+      const btn = document.getElementById('syncBtn');
+      const icon = document.getElementById('syncIcon');
+      const status = document.getElementById('syncStatus');
+
+      btn.disabled = true;
+      icon.style.animation = 'spin 600ms linear infinite';
+      status.className = 'sync-status';
+      status.textContent = 'Running…';
+
+      try {
+        const res = await fetch('/api/embed', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const { places = 0, items = 0, blogs = 0 } = data.results || {};
+          const total = places + items + blogs;
+          status.className = 'sync-status ok';
+          status.textContent = total === 0
+            ? 'Already up to date'
+            : `+${places}p +${items}i +${blogs}b embedded`;
+        } else {
+          status.className = 'sync-status err';
+          status.textContent = data.error || 'Failed';
+        }
+      } catch (err) {
+        status.className = 'sync-status err';
+        status.textContent = 'Network error';
+      } finally {
+        btn.disabled = false;
+        icon.style.animation = '';
+      }
+    }
 
     // Restore draft or start with one empty item
     const _hasDraft = !!localStorage.getItem(DRAFT_KEY);
